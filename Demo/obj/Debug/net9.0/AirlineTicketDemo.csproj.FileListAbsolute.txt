@@ -159,3 +159,4 @@
 /Users/aizen/Documents/учебная папка/проект по адо/Demo/obj/Debug/net9.0/AirlineTicketDemo.pdb
 /Users/aizen/Documents/учебная папка/проект по адо/Demo/obj/Debug/net9.0/AirlineTicketDemo.genruntimeconfig.cache
 /Users/aizen/Documents/учебная папка/проект по адо/Demo/obj/Debug/net9.0/ref/AirlineTicketDemo.dll
+/Users/aizen/Documents/учебная папка/проект по адо/Demo/obj/Debug/net9.0/AirlineTicketDemo.sourcelink.json

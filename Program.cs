@@ -5,6 +5,7 @@ using Microsoft.Extensions.Hosting;
 using AirlineTicketSystem.Data;
 using AirlineTicketSystem.Services;
 using AirlineTicketSystem.Models;
+using System.Globalization;
 
 namespace AirlineTicketSystem
 {
@@ -12,6 +13,13 @@ namespace AirlineTicketSystem
     {
         public static async Task Main(string[] args)
         {
+            // Настройка культуры для отображения цен в рублях
+            var culture = new CultureInfo("ru-RU");
+            CultureInfo.CurrentCulture = culture;
+            CultureInfo.CurrentUICulture = culture;
+            Thread.CurrentThread.CurrentCulture = culture;
+            Thread.CurrentThread.CurrentUICulture = culture;
+            
             // Настройка DI контейнера
             var host = Host.CreateDefaultBuilder(args)
                 .ConfigureServices((context, services) =>
