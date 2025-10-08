@@ -2,6 +2,7 @@ using Spectre.Console;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using AirlineTicketSystem.Data;
 using AirlineTicketSystem.Services;
 using AirlineTicketSystem.Models;
@@ -22,10 +23,17 @@ namespace AirlineTicketSystem.Demo
             
             // Настройка DI контейнера
             var host = Host.CreateDefaultBuilder(args)
+                .ConfigureLogging(logging =>
+                {
+                    logging.ClearProviders(); // Отключаем все логирование
+                    logging.SetMinimumLevel(LogLevel.Warning); // Показываем только предупреждения и ошибки
+                })
                 .ConfigureServices((context, services) =>
                 {
                     services.AddDbContext<AirlineDbContext>(options =>
-                        options.UseSqlite("Data Source=airline.db"));
+                        options.UseSqlite("Data Source=airline.db")
+                               .EnableSensitiveDataLogging(false)
+                               .LogTo(Console.WriteLine, LogLevel.Warning)); // Логируем только предупреждения
                     
                     services.AddScoped<IAirlineService, AirlineService>();
                     services.AddScoped<IFlightService, FlightService>();
