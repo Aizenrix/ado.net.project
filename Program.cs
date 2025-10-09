@@ -192,101 +192,169 @@ namespace AirlineTicketSystem
 
         private async Task SearchFlightsAsync()
         {
-            AnsiConsole.Write(new Markup("[bold blue]🔍 Поиск рейсов[/]"));
-            AnsiConsole.WriteLine();
-
-            var departureCity = AnsiConsole.Ask<string>("[green]Город отправления:[/]");
-            var arrivalCity = AnsiConsole.Ask<string>("[green]Город прибытия:[/]");
-            var departureDateStr = AnsiConsole.Ask<string>("[green]Дата отправления (dd.MM.yyyy) или Enter для любой:[/]");
-
-            DateTime? departureDate = null;
-            if (!string.IsNullOrEmpty(departureDateStr))
+            while (true)
             {
-                if (DateTime.TryParseExact(departureDateStr, "dd.MM.yyyy", null, System.Globalization.DateTimeStyles.None, out var parsedDate))
+                AnsiConsole.Write(new Markup("[bold blue]🔍 Поиск рейсов[/]"));
+                AnsiConsole.WriteLine();
+
+                var departureCity = AnsiConsole.Prompt(
+                    new TextPrompt<string>("[green]Город отправления (или 'назад' для выхода):[/]")
+                        .AllowEmpty());
+
+                if (string.IsNullOrWhiteSpace(departureCity) || departureCity.ToLower() == "назад")
                 {
-                    departureDate = parsedDate;
+                    return;
                 }
+
+                var arrivalCity = AnsiConsole.Prompt(
+                    new TextPrompt<string>("[green]Город прибытия (или 'назад' для выхода):[/]")
+                        .AllowEmpty());
+
+                if (string.IsNullOrWhiteSpace(arrivalCity) || arrivalCity.ToLower() == "назад")
+                {
+                    return;
+                }
+
+                var departureDateStr = AnsiConsole.Ask<string>("[green]Дата отправления (dd.MM.yyyy) или Enter для любой:[/]", "");
+
+                DateTime? departureDate = null;
+                if (!string.IsNullOrEmpty(departureDateStr))
+                {
+                    if (DateTime.TryParseExact(departureDateStr, "dd.MM.yyyy", null, System.Globalization.DateTimeStyles.None, out var parsedDate))
+                    {
+                        departureDate = parsedDate;
+                    }
+                }
+
+                using var scope = _serviceProvider.CreateScope();
+                var flightService = scope.ServiceProvider.GetRequiredService<IFlightService>();
+
+                var flights = await flightService.SearchFlightsAsync(departureCity, arrivalCity, departureDate);
+
+                if (!flights.Any())
+                {
+                    AnsiConsole.Write(new Markup("[red]Рейсы не найдены.[/]"));
+                }
+                else
+                {
+                    var table = new Table();
+                    table.AddColumn("№");
+                    table.AddColumn("Рейс");
+                    table.AddColumn("Авиакомпания");
+                    table.AddColumn("Откуда");
+                    table.AddColumn("Куда");
+                    table.AddColumn("Время отправления");
+                    table.AddColumn("Время прибытия");
+                    table.AddColumn("Свободных мест");
+                    table.AddColumn("Цена");
+
+                    for (int i = 0; i < flights.Count; i++)
+                    {
+                        var flight = flights[i];
+                        table.AddRow(
+                            (i + 1).ToString(),
+                            flight.FlightNumber,
+                            flight.Airline.Name,
+                            flight.DepartureCity,
+                            flight.ArrivalCity,
+                            flight.DepartureTime.ToString("dd.MM.yyyy HH:mm"),
+                            flight.ArrivalTime.ToString("dd.MM.yyyy HH:mm"),
+                            flight.AvailableSeats.ToString(),
+                            $"{flight.BasePrice:C}"
+                        );
+                    }
+
+                    AnsiConsole.Write(table);
+                }
+
+                AnsiConsole.WriteLine();
+                var continueSearch = AnsiConsole.Confirm("[yellow]Выполнить новый поиск?[/]", false);
+                if (!continueSearch)
+                {
+                    return;
+                }
+                AnsiConsole.Clear();
             }
-
-            using var scope = _serviceProvider.CreateScope();
-            var flightService = scope.ServiceProvider.GetRequiredService<IFlightService>();
-
-            var flights = await flightService.SearchFlightsAsync(departureCity, arrivalCity, departureDate);
-
-            if (!flights.Any())
-            {
-                AnsiConsole.Write(new Markup("[red]Рейсы не найдены.[/]"));
-                return;
-            }
-
-            var table = new Table();
-            table.AddColumn("№");
-            table.AddColumn("Рейс");
-            table.AddColumn("Авиакомпания");
-            table.AddColumn("Откуда");
-            table.AddColumn("Куда");
-            table.AddColumn("Время отправления");
-            table.AddColumn("Время прибытия");
-            table.AddColumn("Свободных мест");
-            table.AddColumn("Цена");
-
-            for (int i = 0; i < flights.Count; i++)
-            {
-                var flight = flights[i];
-                table.AddRow(
-                    (i + 1).ToString(),
-                    flight.FlightNumber,
-                    flight.Airline.Name,
-                    flight.DepartureCity,
-                    flight.ArrivalCity,
-                    flight.DepartureTime.ToString("dd.MM.yyyy HH:mm"),
-                    flight.ArrivalTime.ToString("dd.MM.yyyy HH:mm"),
-                    flight.AvailableSeats.ToString(),
-                    $"{flight.BasePrice:C}"
-                );
-            }
-
-            AnsiConsole.Write(table);
         }
 
         private async Task ShowAllFlightsAsync()
         {
-            AnsiConsole.Write(new Markup("[bold blue]✈️ Все рейсы[/]"));
-            AnsiConsole.WriteLine();
-
-            using var scope = _serviceProvider.CreateScope();
-            var flightService = scope.ServiceProvider.GetRequiredService<IFlightService>();
-
-            var flights = await flightService.GetAllFlightsAsync();
-
-            var table = new Table();
-            table.AddColumn("№");
-            table.AddColumn("Рейс");
-            table.AddColumn("Авиакомпания");
-            table.AddColumn("Откуда");
-            table.AddColumn("Куда");
-            table.AddColumn("Время отправления");
-            table.AddColumn("Время прибытия");
-            table.AddColumn("Свободных мест");
-            table.AddColumn("Цена");
-
-            for (int i = 0; i < flights.Count; i++)
+            while (true)
             {
-                var flight = flights[i];
-                table.AddRow(
-                    (i + 1).ToString(),
-                    flight.FlightNumber,
-                    flight.Airline.Name,
-                    flight.DepartureCity,
-                    flight.ArrivalCity,
-                    flight.DepartureTime.ToString("dd.MM.yyyy HH:mm"),
-                    flight.ArrivalTime.ToString("dd.MM.yyyy HH:mm"),
-                    flight.AvailableSeats.ToString(),
-                    $"{flight.BasePrice:C}"
-                );
-            }
+                AnsiConsole.Write(new Markup("[bold blue]✈️ Все рейсы[/]"));
+                AnsiConsole.WriteLine();
 
-            AnsiConsole.Write(table);
+                using var scope = _serviceProvider.CreateScope();
+                var flightService = scope.ServiceProvider.GetRequiredService<IFlightService>();
+
+                var flights = await flightService.GetAllFlightsAsync();
+
+                if (!flights.Any())
+                {
+                    AnsiConsole.Write(new Markup("[red]Рейсы не найдены.[/]"));
+                    AnsiConsole.WriteLine();
+                    AnsiConsole.Write(new Markup("[dim]Нажмите любую клавишу для возврата...[/]"));
+                    Console.ReadKey();
+                    return;
+                }
+
+                var table = new Table();
+                table.Border = TableBorder.Rounded;
+                table.AddColumn("№");
+                table.AddColumn("Рейс");
+                table.AddColumn("Авиакомпания");
+                table.AddColumn("Откуда");
+                table.AddColumn("Куда");
+                table.AddColumn("Время отправления");
+                table.AddColumn("Время прибытия");
+                table.AddColumn("Свободных мест");
+                table.AddColumn("Цена");
+
+                for (int i = 0; i < flights.Count; i++)
+                {
+                    var flight = flights[i];
+                    var seatsColor = flight.AvailableSeats > 50 ? "green" : 
+                                    flight.AvailableSeats > 10 ? "yellow" : "red";
+                    
+                    table.AddRow(
+                        (i + 1).ToString(),
+                        flight.FlightNumber,
+                        flight.Airline.Name,
+                        flight.DepartureCity,
+                        flight.ArrivalCity,
+                        flight.DepartureTime.ToString("dd.MM.yyyy HH:mm"),
+                        flight.ArrivalTime.ToString("dd.MM.yyyy HH:mm"),
+                        $"[{seatsColor}]{flight.AvailableSeats}[/]",
+                        $"{flight.BasePrice:C}"
+                    );
+                }
+
+                AnsiConsole.Write(table);
+                AnsiConsole.WriteLine();
+
+                var action = AnsiConsole.Prompt(
+                    new SelectionPrompt<string>()
+                        .Title("[green]Что дальше?[/]")
+                        .AddChoices(new[]
+                        {
+                            "🔄 Обновить список",
+                            "🎫 Забронировать билет",
+                            "🔙 Назад"
+                        }));
+
+                if (action == "🔙 Назад")
+                {
+                    return;
+                }
+                else if (action == "🎫 Забронировать билет")
+                {
+                    AnsiConsole.Clear();
+                    await BookTicketsAsync();
+                    return;
+                }
+                
+                AnsiConsole.Clear();
+            }
         }
 
         private async Task BookTicketsAsync()
@@ -301,27 +369,102 @@ namespace AirlineTicketSystem
 
             // Выбор рейса
             var flights = await flightService.GetAllFlightsAsync();
+            if (!flights.Any())
+            {
+                AnsiConsole.Write(new Markup("[red]Нет доступных рейсов.[/]"));
+                return;
+            }
+
             var flightChoices = flights.Select(f => $"{f.FlightNumber} - {f.DepartureCity} → {f.ArrivalCity} ({f.DepartureTime:dd.MM.yyyy HH:mm})").ToList();
+            flightChoices.Add("🔙 Назад");
             
             var selectedFlightStr = AnsiConsole.Prompt(
                 new SelectionPrompt<string>()
                     .Title("[green]Выберите рейс:[/]")
                     .AddChoices(flightChoices));
 
+            if (selectedFlightStr == "🔙 Назад")
+            {
+                return;
+            }
+
             var selectedFlight = flights[flightChoices.IndexOf(selectedFlightStr)];
 
+            // Проверка доступности мест
+            if (selectedFlight.AvailableSeats <= 0)
+            {
+                AnsiConsole.Write(new Markup("[red]На выбранном рейсе нет свободных мест.[/]"));
+                return;
+            }
+
             // Ввод данных пассажира
+            AnsiConsole.WriteLine();
             AnsiConsole.Write(new Markup("[bold]Данные пассажира:[/]"));
-            var firstName = AnsiConsole.Ask<string>("[green]Имя:[/]");
-            var lastName = AnsiConsole.Ask<string>("[green]Фамилия:[/]");
-            var passportNumber = AnsiConsole.Ask<string>("[green]Номер паспорта:[/]");
-            var email = AnsiConsole.Ask<string>("[green]Email:[/]");
-            var phoneNumber = AnsiConsole.Ask<string>("[green]Телефон:[/]");
-            var dateOfBirthStr = AnsiConsole.Ask<string>("[green]Дата рождения (dd.MM.yyyy):[/]");
+            AnsiConsole.WriteLine();
+            
+            var firstName = AnsiConsole.Prompt(
+                new TextPrompt<string>("[green]Имя (или 'назад' для отмены):[/]")
+                    .AllowEmpty());
+            
+            if (string.IsNullOrWhiteSpace(firstName) || firstName.ToLower() == "назад")
+            {
+                AnsiConsole.Write(new Markup("[yellow]Бронирование отменено.[/]"));
+                return;
+            }
+
+            var lastName = AnsiConsole.Prompt(
+                new TextPrompt<string>("[green]Фамилия (или 'назад' для отмены):[/]")
+                    .AllowEmpty());
+            
+            if (string.IsNullOrWhiteSpace(lastName) || lastName.ToLower() == "назад")
+            {
+                AnsiConsole.Write(new Markup("[yellow]Бронирование отменено.[/]"));
+                return;
+            }
+
+            var passportNumber = AnsiConsole.Prompt(
+                new TextPrompt<string>("[green]Номер паспорта (или 'назад' для отмены):[/]")
+                    .AllowEmpty());
+            
+            if (string.IsNullOrWhiteSpace(passportNumber) || passportNumber.ToLower() == "назад")
+            {
+                AnsiConsole.Write(new Markup("[yellow]Бронирование отменено.[/]"));
+                return;
+            }
+
+            var email = AnsiConsole.Prompt(
+                new TextPrompt<string>("[green]Email (или 'назад' для отмены):[/]")
+                    .AllowEmpty());
+            
+            if (string.IsNullOrWhiteSpace(email) || email.ToLower() == "назад")
+            {
+                AnsiConsole.Write(new Markup("[yellow]Бронирование отменено.[/]"));
+                return;
+            }
+
+            var phoneNumber = AnsiConsole.Prompt(
+                new TextPrompt<string>("[green]Телефон (или 'назад' для отмены):[/]")
+                    .AllowEmpty());
+            
+            if (string.IsNullOrWhiteSpace(phoneNumber) || phoneNumber.ToLower() == "назад")
+            {
+                AnsiConsole.Write(new Markup("[yellow]Бронирование отменено.[/]"));
+                return;
+            }
+
+            var dateOfBirthStr = AnsiConsole.Prompt(
+                new TextPrompt<string>("[green]Дата рождения (dd.MM.yyyy) или 'назад' для отмены:[/]")
+                    .AllowEmpty());
+
+            if (string.IsNullOrWhiteSpace(dateOfBirthStr) || dateOfBirthStr.ToLower() == "назад")
+            {
+                AnsiConsole.Write(new Markup("[yellow]Бронирование отменено.[/]"));
+                return;
+            }
 
             if (!DateTime.TryParseExact(dateOfBirthStr, "dd.MM.yyyy", null, System.Globalization.DateTimeStyles.None, out var dateOfBirth))
             {
-                AnsiConsole.Write(new Markup("[red]Неверный формат даты.[/]"));
+                AnsiConsole.Write(new Markup("[red]Неверный формат даты. Бронирование отменено.[/]"));
                 return;
             }
 
@@ -339,13 +482,36 @@ namespace AirlineTicketSystem
                     DateOfBirth = dateOfBirth
                 };
                 passenger = await passengerService.CreatePassengerAsync(passenger);
+                AnsiConsole.Write(new Markup("[green]✅ Новый пассажир добавлен в систему.[/]"));
+                AnsiConsole.WriteLine();
+            }
+            else
+            {
+                AnsiConsole.Write(new Markup("[green]✅ Пассажир найден в системе.[/]"));
+                AnsiConsole.WriteLine();
             }
 
             // Выбор класса
-            var ticketClass = AnsiConsole.Prompt(
-                new SelectionPrompt<TicketClass>()
+            var classChoices = new List<string>
+            {
+                "Economy",
+                "Business",
+                "First",
+                "🔙 Назад"
+            };
+
+            var selectedClass = AnsiConsole.Prompt(
+                new SelectionPrompt<string>()
                     .Title("[green]Выберите класс:[/]")
-                    .AddChoices(Enum.GetValues<TicketClass>()));
+                    .AddChoices(classChoices));
+
+            if (selectedClass == "🔙 Назад")
+            {
+                AnsiConsole.Write(new Markup("[yellow]Бронирование отменено.[/]"));
+                return;
+            }
+
+            var ticketClass = Enum.Parse<TicketClass>(selectedClass);
 
             // Расчет цены
             var priceMultiplier = ticketClass switch
@@ -359,6 +525,7 @@ namespace AirlineTicketSystem
             var ticketPrice = selectedFlight.BasePrice * priceMultiplier;
 
             // Подтверждение бронирования
+            AnsiConsole.WriteLine();
             var confirm = AnsiConsole.Confirm($"[green]Подтвердить бронирование за {ticketPrice:C}?[/]");
             if (!confirm)
             {
@@ -382,6 +549,7 @@ namespace AirlineTicketSystem
             // Обновление доступных мест
             await flightService.UpdateAvailableSeatsAsync(selectedFlight.Id, 1);
 
+            AnsiConsole.WriteLine();
             AnsiConsole.Write(new Markup($"[bold green]✅ Бронирование успешно создано![/]"));
             AnsiConsole.Write(new Markup($"[green]Номер бронирования: {booking.BookingNumber}[/]"));
             AnsiConsole.Write(new Markup($"[green]Номер билета: {ticket.TicketNumber}[/]"));
@@ -389,7 +557,48 @@ namespace AirlineTicketSystem
 
         private async Task ManagePassengersAsync()
         {
-            AnsiConsole.Write(new Markup("[bold blue]👤 Управление пассажирами[/]"));
+            while (true)
+            {
+                AnsiConsole.Write(new Markup("[bold blue]👤 Управление пассажирами[/]"));
+                AnsiConsole.WriteLine();
+
+                using var scope = _serviceProvider.CreateScope();
+                var passengerService = scope.ServiceProvider.GetRequiredService<IPassengerService>();
+
+                var action = AnsiConsole.Prompt(
+                    new SelectionPrompt<string>()
+                        .Title("[green]Выберите действие:[/]")
+                        .AddChoices(new[]
+                        {
+                            "📋 Просмотр всех пассажиров",
+                            "✏️ Редактирование пассажира",
+                            "🔙 Назад"
+                        }));
+
+                if (action == "🔙 Назад")
+                {
+                    return;
+                }
+
+                if (action == "📋 Просмотр всех пассажиров")
+                {
+                    await ShowAllPassengersAsync();
+                }
+                else if (action == "✏️ Редактирование пассажира")
+                {
+                    await EditPassengerAsync();
+                }
+
+                AnsiConsole.WriteLine();
+                AnsiConsole.Write(new Markup("[dim]Нажмите любую клавишу для продолжения...[/]"));
+                Console.ReadKey();
+                AnsiConsole.Clear();
+            }
+        }
+
+        private async Task ShowAllPassengersAsync()
+        {
+            AnsiConsole.Write(new Markup("[bold blue]📋 Все пассажиры[/]"));
             AnsiConsole.WriteLine();
 
             using var scope = _serviceProvider.CreateScope();
@@ -429,123 +638,389 @@ namespace AirlineTicketSystem
             AnsiConsole.Write(table);
         }
 
-        private async Task ShowBookingsAsync()
+        private async Task EditPassengerAsync()
         {
-            AnsiConsole.Write(new Markup("[bold blue]📋 Мои бронирования[/]"));
+            AnsiConsole.Write(new Markup("[bold blue]✏️ Редактирование пассажира[/]"));
             AnsiConsole.WriteLine();
 
             using var scope = _serviceProvider.CreateScope();
-            var bookingService = scope.ServiceProvider.GetRequiredService<IBookingService>();
+            var passengerService = scope.ServiceProvider.GetRequiredService<IPassengerService>();
 
-            var bookings = await bookingService.GetAllBookingsAsync();
+            var passengers = await passengerService.GetAllPassengersAsync();
 
-            if (!bookings.Any())
+            if (!passengers.Any())
             {
-                AnsiConsole.Write(new Markup("[red]Бронирования не найдены.[/]"));
+                AnsiConsole.Write(new Markup("[red]Пассажиры не найдены.[/]"));
                 return;
             }
 
-            foreach (var booking in bookings)
+            // Добавляем опцию "Назад" в список выбора
+            var passengerChoices = passengers.Select(p => 
+                $"{p.FirstName} {p.LastName} - {p.PassportNumber}").ToList();
+            passengerChoices.Add("🔙 Назад");
+
+            var selectedPassengerStr = AnsiConsole.Prompt(
+                new SelectionPrompt<string>()
+                    .Title("[green]Выберите пассажира для редактирования:[/]")
+                    .AddChoices(passengerChoices));
+
+            if (selectedPassengerStr == "🔙 Назад")
             {
-                var panel = new Panel($"[bold]Номер бронирования:[/] {booking.BookingNumber}\n" +
-                                    $"[bold]Статус:[/] {GetStatusText(booking.Status)}\n" +
-                                    $"[bold]Дата бронирования:[/] {booking.BookingDate:dd.MM.yyyy HH:mm}\n" +
-                                    $"[bold]Общая сумма:[/] {booking.TotalAmount:C}")
+                return;
+            }
+
+            var selectedPassenger = passengers[passengerChoices.IndexOf(selectedPassengerStr)];
+
+            // Показываем текущие данные
+            var panel = new Panel(
+                $"[bold]Имя:[/] {selectedPassenger.FirstName}\n" +
+                $"[bold]Фамилия:[/] {selectedPassenger.LastName}\n" +
+                $"[bold]Паспорт:[/] {selectedPassenger.PassportNumber}\n" +
+                $"[bold]Email:[/] {selectedPassenger.Email ?? "не указан"} [dim](не редактируется)[/]\n" +
+                $"[bold]Телефон:[/] {selectedPassenger.PhoneNumber ?? "не указан"}\n" +
+                $"[bold]Дата рождения:[/] {selectedPassenger.DateOfBirth:dd.MM.yyyy}")
+            {
+                Header = new PanelHeader("[bold blue]Текущие данные пассажира[/]")
+            };
+
+            AnsiConsole.Write(panel);
+            AnsiConsole.WriteLine();
+
+            // Запрашиваем новые данные
+            AnsiConsole.Write(new Markup("[bold]Введите новые данные (нажмите Enter, чтобы оставить текущее значение):[/]"));
+            AnsiConsole.WriteLine();
+
+            var firstName = AnsiConsole.Ask<string>("[green]Имя:[/]", selectedPassenger.FirstName);
+            var lastName = AnsiConsole.Ask<string>("[green]Фамилия:[/]", selectedPassenger.LastName);
+            var passportNumber = AnsiConsole.Ask<string>("[green]Номер паспорта:[/]", selectedPassenger.PassportNumber);
+            var phoneNumber = AnsiConsole.Ask<string>("[green]Телефон:[/]", selectedPassenger.PhoneNumber ?? "");
+            
+            var dateOfBirthStr = AnsiConsole.Ask<string>(
+                "[green]Дата рождения (dd.MM.yyyy):[/]", 
+                selectedPassenger.DateOfBirth.ToString("dd.MM.yyyy"));
+
+            DateTime dateOfBirth = selectedPassenger.DateOfBirth;
+            if (!string.IsNullOrEmpty(dateOfBirthStr) && dateOfBirthStr != selectedPassenger.DateOfBirth.ToString("dd.MM.yyyy"))
+            {
+                if (!DateTime.TryParseExact(dateOfBirthStr, "dd.MM.yyyy", null, System.Globalization.DateTimeStyles.None, out dateOfBirth))
                 {
-                    Header = new PanelHeader($"[bold blue]Бронирование #{booking.Id}[/]")
-                };
+                    AnsiConsole.Write(new Markup("[red]Неверный формат даты. Изменения не применены.[/]"));
+                    return;
+                }
+            }
 
-                AnsiConsole.Write(panel);
+            // Подтверждение изменений
+            var confirm = AnsiConsole.Confirm("[yellow]Сохранить изменения?[/]");
+            if (!confirm)
+            {
+                AnsiConsole.Write(new Markup("[yellow]Изменения отменены.[/]"));
+                return;
+            }
 
-                var table = new Table();
-                table.AddColumn("Билет");
-                table.AddColumn("Пассажир");
-                table.AddColumn("Рейс");
-                table.AddColumn("Класс");
-                table.AddColumn("Цена");
+            // Обновляем данные
+            selectedPassenger.FirstName = firstName;
+            selectedPassenger.LastName = lastName;
+            selectedPassenger.PassportNumber = passportNumber;
+            selectedPassenger.PhoneNumber = string.IsNullOrWhiteSpace(phoneNumber) ? null : phoneNumber;
+            selectedPassenger.DateOfBirth = dateOfBirth;
 
-                foreach (var ticket in booking.Tickets)
+            var success = await passengerService.UpdatePassengerAsync(selectedPassenger);
+
+            if (success)
+            {
+                AnsiConsole.Write(new Markup("[bold green]✅ Данные пассажира успешно обновлены![/]"));
+            }
+            else
+            {
+                AnsiConsole.Write(new Markup("[red]Ошибка при обновлении данных пассажира.[/]"));
+            }
+        }
+
+        private async Task ShowBookingsAsync()
+        {
+            while (true)
+            {
+                AnsiConsole.Write(new Markup("[bold blue]📋 Мои бронирования[/]"));
+                AnsiConsole.WriteLine();
+
+                using var scope = _serviceProvider.CreateScope();
+                var bookingService = scope.ServiceProvider.GetRequiredService<IBookingService>();
+
+                var bookings = await bookingService.GetAllBookingsAsync();
+
+                if (!bookings.Any())
                 {
-                    table.AddRow(
-                        ticket.TicketNumber,
-                        $"{ticket.Passenger.FirstName} {ticket.Passenger.LastName}",
-                        $"{ticket.Flight.FlightNumber} ({ticket.Flight.DepartureCity} → {ticket.Flight.ArrivalCity})",
-                        ticket.Class.ToString(),
-                        $"{ticket.Price:C}"
-                    );
+                    AnsiConsole.Write(new Markup("[red]Бронирования не найдены.[/]"));
+                    AnsiConsole.WriteLine();
+                    AnsiConsole.Write(new Markup("[dim]Нажмите любую клавишу для возврата...[/]"));
+                    Console.ReadKey();
+                    return;
                 }
 
-                AnsiConsole.Write(table);
-                AnsiConsole.WriteLine();
+                foreach (var booking in bookings)
+                {
+                    var statusColor = booking.Status == BookingStatus.Confirmed ? "green" : 
+                                     booking.Status == BookingStatus.Cancelled ? "red" : "blue";
+                    
+                    var panel = new Panel($"[bold]Номер бронирования:[/] {booking.BookingNumber}\n" +
+                                        $"[bold]Статус:[/] {GetStatusText(booking.Status)}\n" +
+                                        $"[bold]Дата бронирования:[/] {booking.BookingDate:dd.MM.yyyy HH:mm}\n" +
+                                        $"[bold]Общая сумма:[/] {booking.TotalAmount:C}")
+                    {
+                        Header = new PanelHeader($"[bold {statusColor}]Бронирование #{booking.Id}[/]"),
+                        Border = BoxBorder.Rounded
+                    };
+
+                    AnsiConsole.Write(panel);
+
+                    var table = new Table();
+                    table.Border = TableBorder.Rounded;
+                    table.AddColumn("Билет");
+                    table.AddColumn("Пассажир");
+                    table.AddColumn("Рейс");
+                    table.AddColumn("Класс");
+                    table.AddColumn("Цена");
+
+                    foreach (var ticket in booking.Tickets)
+                    {
+                        table.AddRow(
+                            ticket.TicketNumber,
+                            $"{ticket.Passenger.FirstName} {ticket.Passenger.LastName}",
+                            $"{ticket.Flight.FlightNumber} ({ticket.Flight.DepartureCity} → {ticket.Flight.ArrivalCity})",
+                            ticket.Class.ToString(),
+                            $"{ticket.Price:C}"
+                        );
+                    }
+
+                    AnsiConsole.Write(table);
+                    AnsiConsole.WriteLine();
+                }
+
+                var action = AnsiConsole.Prompt(
+                    new SelectionPrompt<string>()
+                        .Title("[green]Что дальше?[/]")
+                        .AddChoices(new[]
+                        {
+                            "🔄 Обновить список",
+                            "❌ Отменить бронирование",
+                            "🔙 Назад"
+                        }));
+
+                if (action == "🔙 Назад")
+                {
+                    return;
+                }
+                else if (action == "❌ Отменить бронирование")
+                {
+                    AnsiConsole.Clear();
+                    await CancelBookingAsync();
+                    return;
+                }
+                
+                AnsiConsole.Clear();
             }
         }
 
         private async Task CancelBookingAsync()
         {
-            AnsiConsole.Write(new Markup("[bold blue]❌ Отмена бронирования[/]"));
-            AnsiConsole.WriteLine();
-
-            using var scope = _serviceProvider.CreateScope();
-            var bookingService = scope.ServiceProvider.GetRequiredService<IBookingService>();
-
-            var bookingNumber = AnsiConsole.Ask<string>("[green]Введите номер бронирования:[/]");
-
-            var booking = await bookingService.GetBookingByNumberAsync(bookingNumber);
-            if (booking == null)
+            while (true)
             {
-                AnsiConsole.Write(new Markup("[red]Бронирование не найдено.[/]"));
-                return;
-            }
+                AnsiConsole.Write(new Markup("[bold blue]❌ Отмена бронирования[/]"));
+                AnsiConsole.WriteLine();
 
-            if (booking.Status == BookingStatus.Cancelled)
-            {
-                AnsiConsole.Write(new Markup("[red]Бронирование уже отменено.[/]"));
-                return;
-            }
+                using var scope = _serviceProvider.CreateScope();
+                var bookingService = scope.ServiceProvider.GetRequiredService<IBookingService>();
 
-            var confirm = AnsiConsole.Confirm($"[red]Вы уверены, что хотите отменить бронирование {bookingNumber}?[/]");
-            if (!confirm)
-            {
-                AnsiConsole.Write(new Markup("[yellow]Отмена бронирования отменена.[/]"));
-                return;
-            }
+                var bookingNumber = AnsiConsole.Prompt(
+                    new TextPrompt<string>("[green]Введите номер бронирования (или 'назад' для выхода):[/]")
+                        .AllowEmpty());
 
-            var success = await bookingService.CancelBookingAsync(booking.Id);
-            if (success)
-            {
-                AnsiConsole.Write(new Markup("[bold green]✅ Бронирование успешно отменено![/]"));
-            }
-            else
-            {
-                AnsiConsole.Write(new Markup("[red]Ошибка при отмене бронирования.[/]"));
+                if (string.IsNullOrWhiteSpace(bookingNumber) || bookingNumber.ToLower() == "назад")
+                {
+                    return;
+                }
+
+                var booking = await bookingService.GetBookingByNumberAsync(bookingNumber);
+                if (booking == null)
+                {
+                    AnsiConsole.Write(new Markup("[red]Бронирование не найдено.[/]"));
+                    AnsiConsole.WriteLine();
+                    var retry = AnsiConsole.Confirm("[yellow]Попробовать снова?[/]");
+                    if (!retry)
+                    {
+                        return;
+                    }
+                    AnsiConsole.Clear();
+                    continue;
+                }
+
+                if (booking.Status == BookingStatus.Cancelled)
+                {
+                    AnsiConsole.Write(new Markup("[red]Бронирование уже отменено.[/]"));
+                    AnsiConsole.WriteLine();
+                    var retry = AnsiConsole.Confirm("[yellow]Попробовать с другим номером?[/]");
+                    if (!retry)
+                    {
+                        return;
+                    }
+                    AnsiConsole.Clear();
+                    continue;
+                }
+
+                // Показываем детали бронирования
+                var panel = new Panel(
+                    $"[bold]Номер бронирования:[/] {booking.BookingNumber}\n" +
+                    $"[bold]Статус:[/] {GetStatusText(booking.Status)}\n" +
+                    $"[bold]Дата бронирования:[/] {booking.BookingDate:dd.MM.yyyy HH:mm}\n" +
+                    $"[bold]Общая сумма:[/] {booking.TotalAmount:C}\n" +
+                    $"[bold]Количество билетов:[/] {booking.Tickets.Count}")
+                {
+                    Header = new PanelHeader("[bold blue]Детали бронирования[/]")
+                };
+
+                AnsiConsole.Write(panel);
+                AnsiConsole.WriteLine();
+
+                var confirm = AnsiConsole.Confirm($"[red]Вы уверены, что хотите отменить это бронирование?[/]");
+                if (!confirm)
+                {
+                    AnsiConsole.Write(new Markup("[yellow]Отмена бронирования отменена.[/]"));
+                    return;
+                }
+
+                var success = await bookingService.CancelBookingAsync(booking.Id);
+                if (success)
+                {
+                    // Восстанавливаем места на рейсах
+                    var flightService = scope.ServiceProvider.GetRequiredService<IFlightService>();
+                    foreach (var ticket in booking.Tickets)
+                    {
+                        var flight = await flightService.GetFlightByIdAsync(ticket.FlightId);
+                        if (flight != null)
+                        {
+                            flight.AvailableSeats++;
+                            var context = scope.ServiceProvider.GetRequiredService<AirlineDbContext>();
+                            await context.SaveChangesAsync();
+                        }
+                    }
+
+                    AnsiConsole.Write(new Markup("[bold green]✅ Бронирование успешно отменено![/]"));
+                }
+                else
+                {
+                    AnsiConsole.Write(new Markup("[red]Ошибка при отмене бронирования.[/]"));
+                }
+
+                AnsiConsole.WriteLine();
+                var another = AnsiConsole.Confirm("[yellow]Отменить еще одно бронирование?[/]", false);
+                if (!another)
+                {
+                    return;
+                }
+                AnsiConsole.Clear();
             }
         }
 
         private async Task ShowStatisticsAsync()
         {
-            AnsiConsole.Write(new Markup("[bold blue]📊 Статистика[/]"));
-            AnsiConsole.WriteLine();
+            while (true)
+            {
+                AnsiConsole.Write(new Markup("[bold blue]📊 Статистика системы[/]"));
+                AnsiConsole.WriteLine();
 
-            using var scope = _serviceProvider.CreateScope();
-            var context = scope.ServiceProvider.GetRequiredService<AirlineDbContext>();
+                using var scope = _serviceProvider.CreateScope();
+                var context = scope.ServiceProvider.GetRequiredService<AirlineDbContext>();
 
-            var totalFlights = await context.Flights.CountAsync();
-            var totalPassengers = await context.Passengers.CountAsync();
-            var totalBookings = await context.Bookings.CountAsync();
-            var totalRevenue = await context.Bookings
-                .Where(b => b.Status != BookingStatus.Cancelled)
-                .SumAsync(b => b.TotalAmount);
+                var totalFlights = await context.Flights.CountAsync();
+                var totalPassengers = await context.Passengers.CountAsync();
+                var totalBookings = await context.Bookings.CountAsync();
+                var activeBookings = await context.Bookings.CountAsync(b => b.Status == BookingStatus.Confirmed);
+                var cancelledBookings = await context.Bookings.CountAsync(b => b.Status == BookingStatus.Cancelled);
+                var totalRevenue = await context.Bookings
+                    .Where(b => b.Status != BookingStatus.Cancelled)
+                    .SumAsync(b => b.TotalAmount);
+                var totalSeats = await context.Flights.SumAsync(f => f.TotalSeats);
+                var availableSeats = await context.Flights.SumAsync(f => f.AvailableSeats);
+                var occupiedSeats = totalSeats - availableSeats;
+                var occupancyRate = totalSeats > 0 ? (double)occupiedSeats / totalSeats * 100 : 0;
 
-            var stats = new Table();
-            stats.AddColumn("Показатель");
-            stats.AddColumn("Значение");
+                var stats = new Table();
+                stats.Border = TableBorder.Rounded;
+                stats.AddColumn(new TableColumn("Показатель").Centered());
+                stats.AddColumn(new TableColumn("Значение").Centered());
 
-            stats.AddRow("Всего рейсов", totalFlights.ToString());
-            stats.AddRow("Всего пассажиров", totalPassengers.ToString());
-            stats.AddRow("Всего бронирований", totalBookings.ToString());
-            stats.AddRow("Общая выручка", $"{totalRevenue:C}");
+                stats.AddRow("[bold]Всего рейсов[/]", $"[green]{totalFlights}[/]");
+                stats.AddRow("[bold]Всего пассажиров[/]", $"[green]{totalPassengers}[/]");
+                stats.AddRow("[bold]Всего бронирований[/]", $"[green]{totalBookings}[/]");
+                stats.AddRow("  - Активных", $"[green]{activeBookings}[/]");
+                stats.AddRow("  - Отменённых", $"[red]{cancelledBookings}[/]");
+                stats.AddRow("[bold]Общая выручка[/]", $"[blue]{totalRevenue:C}[/]");
+                stats.AddRow("[bold]Всего мест[/]", $"[yellow]{totalSeats}[/]");
+                stats.AddRow("  - Занято", $"[red]{occupiedSeats}[/]");
+                stats.AddRow("  - Свободно", $"[green]{availableSeats}[/]");
+                stats.AddRow("[bold]Заполняемость[/]", $"[cyan]{occupancyRate:F2}%[/]");
 
-            AnsiConsole.Write(stats);
+                AnsiConsole.Write(stats);
+                AnsiConsole.WriteLine();
+
+                // Топ популярных направлений
+                var topRoutes = await context.Tickets
+                    .Include(t => t.Flight)
+                    .Where(t => t.Status != TicketStatus.Cancelled)
+                    .GroupBy(t => new { t.Flight.DepartureCity, t.Flight.ArrivalCity })
+                    .Select(g => new 
+                    { 
+                        Route = $"{g.Key.DepartureCity} → {g.Key.ArrivalCity}",
+                        Count = g.Count(),
+                        Revenue = g.Sum(t => t.Price)
+                    })
+                    .OrderByDescending(r => r.Count)
+                    .Take(5)
+                    .ToListAsync();
+
+                if (topRoutes.Any())
+                {
+                    AnsiConsole.Write(new Markup("[bold blue]🔥 Топ-5 популярных направлений:[/]"));
+                    AnsiConsole.WriteLine();
+
+                    var routesTable = new Table();
+                    routesTable.Border = TableBorder.Rounded;
+                    routesTable.AddColumn("Место");
+                    routesTable.AddColumn("Направление");
+                    routesTable.AddColumn("Билетов продано");
+                    routesTable.AddColumn("Выручка");
+
+                    for (int i = 0; i < topRoutes.Count; i++)
+                    {
+                        var medal = i == 0 ? "🥇" : i == 1 ? "🥈" : i == 2 ? "🥉" : $"{i + 1}.";
+                        routesTable.AddRow(
+                            medal,
+                            topRoutes[i].Route,
+                            topRoutes[i].Count.ToString(),
+                            $"{topRoutes[i].Revenue:C}"
+                        );
+                    }
+
+                    AnsiConsole.Write(routesTable);
+                    AnsiConsole.WriteLine();
+                }
+
+                var action = AnsiConsole.Prompt(
+                    new SelectionPrompt<string>()
+                        .Title("[green]Что дальше?[/]")
+                        .AddChoices(new[]
+                        {
+                            "🔄 Обновить статистику",
+                            "🔙 Назад"
+                        }));
+
+                if (action == "🔙 Назад")
+                {
+                    return;
+                }
+                
+                AnsiConsole.Clear();
+            }
         }
 
         private string GetStatusText(BookingStatus status)

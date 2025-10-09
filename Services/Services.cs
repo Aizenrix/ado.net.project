@@ -114,6 +114,7 @@ namespace AirlineTicketSystem.Services
         Task<Passenger?> GetPassengerByIdAsync(int id);
         Task<Passenger?> GetPassengerByPassportAsync(string passportNumber);
         Task<Passenger> CreatePassengerAsync(Passenger passenger);
+        Task<bool> UpdatePassengerAsync(Passenger passenger);
     }
 
     public class PassengerService : IPassengerService
@@ -146,6 +147,23 @@ namespace AirlineTicketSystem.Services
             _context.Passengers.Add(passenger);
             await _context.SaveChangesAsync();
             return passenger;
+        }
+
+        public async Task<bool> UpdatePassengerAsync(Passenger passenger)
+        {
+            var existingPassenger = await _context.Passengers.FindAsync(passenger.Id);
+            if (existingPassenger == null)
+                return false;
+
+            // Обновляем все поля кроме Email
+            existingPassenger.FirstName = passenger.FirstName;
+            existingPassenger.LastName = passenger.LastName;
+            existingPassenger.PassportNumber = passenger.PassportNumber;
+            existingPassenger.PhoneNumber = passenger.PhoneNumber;
+            existingPassenger.DateOfBirth = passenger.DateOfBirth;
+
+            await _context.SaveChangesAsync();
+            return true;
         }
     }
 
